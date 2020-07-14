@@ -467,7 +467,7 @@ func filterRunning(config Config, containers Context) Context {
 	} else {
 		filteredContainers := Context{}
 		for _, container := range containers {
-			if container.State.Running {
+			if container.State.Running && !container.State.Killing {
 				filteredContainers = append(filteredContainers, container)
 			}
 		}
