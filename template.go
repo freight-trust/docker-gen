@@ -18,6 +18,8 @@ import (
 	"strings"
 	"syscall"
 	"text/template"
+
+	"github.com/foomo/htpasswd"
 )
 
 func exists(path string) (bool, error) {
@@ -319,6 +321,21 @@ func hashSha1(input string) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
+// no bcrypt on debian. default to sha instead
+// https://github.com/nginxinc/docker-nginx/issues/29#issuecomment-194817391
+func setHTPasswd(file, name, password, algo string) (bool, error) {
+	if algo == "" {
+		algo = htpasswd.HashSHA
+	} else {
+		strings.ToLower(algo)
+	}
+	err := htpasswd.SetPassword(file, name, password, htpasswd.HashAlgorithm(algo))
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func marshalJson(input interface{}) (string, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
@@ -409,6 +426,16 @@ func trim(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// toLower return the string in lower case
+func toLower(s string) string {
+	return strings.ToLower(s)
+}
+
+// toUpper return the string in upper case
+func toUpper(s string) string {
+	return strings.ToUpper(s)
+}
+
 // when returns the trueValue when the condition is true and the falseValue otherwise
 func when(condition bool, trueValue, falseValue interface{}) interface{} {
 	if condition {
@@ -442,11 +469,14 @@ func newTemplate(name string) *template.Template {
 		"parseJson":              unmarshalJson,
 		"queryEscape":            url.QueryEscape,
 		"sha1":                   hashSha1,
+		"setHTPasswd":            setHTPasswd,
 		"split":                  strings.Split,
 		"splitN":                 strings.SplitN,
 		"trimPrefix":             trimPrefix,
 		"trimSuffix":             trimSuffix,
 		"trim":                   trim,
+		"toLower":                toLower,
+		"toUpper":                toUpper,
 		"when":                   when,
 		"where":                  where,
 		"whereNot":               whereNot,

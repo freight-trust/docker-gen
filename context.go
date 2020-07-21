@@ -88,6 +88,7 @@ type RuntimeContainer struct {
 	Gateway      string
 	Name         string
 	Hostname     string
+	NetworkMode  string
 	Image        DockerImage
 	Env          map[string]string
 	Volumes      map[string]Volume
@@ -135,6 +136,7 @@ type SwarmNode struct {
 	ID      string
 	Name    string
 	Address Address
+	Labels  map[string]string
 }
 
 type Mount struct {

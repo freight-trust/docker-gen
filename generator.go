@@ -331,6 +331,14 @@ func (g *generator) sendSignalToContainer(config Config) {
 
 	for container, signal := range config.NotifyContainers {
 		log.Printf("Sending container '%s' signal '%v'", container, signal)
+
+		if signal == -1 {
+			if err := g.Client.RestartContainer(container, 10); err != nil {
+				log.Printf("Error sending restarting container: %s", err)
+			}
+			return
+		}
+
 		killOpts := docker.KillContainerOptions{
 			ID:     container,
 			Signal: signal,
@@ -379,6 +387,7 @@ func (g *generator) getContainers() ([]*RuntimeContainer, error) {
 			Name:         strings.TrimLeft(container.Name, "/"),
 			Hostname:     container.Config.Hostname,
 			Gateway:      container.NetworkSettings.Gateway,
+			NetworkMode:  container.HostConfig.NetworkMode,
 			Addresses:    []Address{},
 			Networks:     []Network{},
 			Env:          make(map[string]string),
@@ -434,6 +443,7 @@ func (g *generator) getContainers() ([]*RuntimeContainer, error) {
 			runtimeContainer.Node.Address = Address{
 				IP: container.Node.IP,
 			}
+			runtimeContainer.Node.Labels = container.Node.Labels
 		}
 
 		for _, v := range container.Mounts {

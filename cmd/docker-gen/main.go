@@ -5,38 +5,43 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sync"
+	"syscall"
 
 	"github.com/BurntSushi/toml"
+	//dockergen "github.com/JoelLinn/docker-gen"
+	//dockergen "../.."
+	dockergen "docker-gen"
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/jwilder/docker-gen"
 )
 
 type stringslice []string
 
 var (
-	buildVersion            string
-	version                 bool
-	watch                   bool
-	wait                    string
-	notifyCmd               string
-	notifyOutput            bool
-	notifySigHUPContainerID string
-	onlyExposed             bool
-	onlyPublished           bool
-	includeStopped          bool
-	configFiles             stringslice
-	configs                 dockergen.ConfigFile
-	interval                int
-	keepBlankLines          bool
-	endpoint                string
-	tlsCert                 string
-	tlsKey                  string
-	tlsCaCert               string
-	tlsVerify               bool
-	tlsCertPath             string
-	wg                      sync.WaitGroup
+	buildVersion          string
+	version               bool
+	watch                 bool
+	wait                  string
+	notifyCmd             string
+	notifyOutput          bool
+	notifyContainerID     string
+	notifyContainerSignal int
+	onlyExposed           bool
+	onlyPublished         bool
+	includeStopped        bool
+	configFiles           stringslice
+	configs               dockergen.ConfigFile
+	interval              int
+	keepBlankLines        bool
+	endpoint              string
+	tlsCert               string
+	tlsKey                string
+	tlsCaCert             string
+	tlsVerify             bool
+	tlsCertPath           string
+	wg                    sync.WaitGroup
 )
 
 func (strings *stringslice) String() string {
@@ -95,8 +100,9 @@ func initFlags() {
 	flag.BoolVar(&includeStopped, "include-stopped", false, "include stopped containers")
 	flag.BoolVar(&notifyOutput, "notify-output", false, "log the output(stdout/stderr) of notify command")
 	flag.StringVar(&notifyCmd, "notify", "", "run command after template is regenerated (e.g `restart xyz`)")
-	flag.StringVar(&notifySigHUPContainerID, "notify-sighup", "",
-		"send HUP signal to container.  Equivalent to docker kill -s HUP `container-ID`")
+	flag.StringVar(&notifyContainerID, "notify-sighup", "", "send HUP signal to container.  Equivalent to docker kill -s HUP `container-ID`")
+	flag.StringVar(&notifyContainerID, "notify-container", "", "container to send a signal to")
+	flag.IntVar(&notifyContainerSignal, "notify-signal", int(docker.SIGHUP), "signal to send to the notify-container. Defaults to SIGHUP")
 	flag.Var(&configFiles, "config", "config files with template directives. Config files will be merged if this option is specified multiple times.")
 	flag.IntVar(&interval, "interval", 0, "notify command interval (secs)")
 	flag.BoolVar(&keepBlankLines, "keep-blank-lines", false, "keep blank lines in the output file")
@@ -111,6 +117,10 @@ func initFlags() {
 }
 
 func main() {
+	// SIGHUP is used to trigger generation but go programs call os.Exit(2) at default.
+	// Ignore the signal until the handler is registered:
+	signal.Ignore(syscall.SIGHUP)
+
 	initFlags()
 
 	if version {
@@ -149,8 +159,8 @@ func main() {
 			Interval:         interval,
 			KeepBlankLines:   keepBlankLines,
 		}
-		if notifySigHUPContainerID != "" {
-			config.NotifyContainers[notifySigHUPContainerID] = docker.SIGHUP
+		if notifyContainerID != "" {
+			config.NotifyContainers[notifyContainerID] = docker.Signal(notifyContainerSignal)
 		}
 		configs = dockergen.ConfigFile{
 			Config: []dockergen.Config{config}}
