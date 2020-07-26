@@ -43,9 +43,15 @@ jobs:
 
 workflows:
   version: 2
-  main:
+  untagged-build:
     jobs:
       - build
+  tagged-build:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /^\d+\.\d+\.\d+$/
       - publish-github-release:
           requires:
             - build
